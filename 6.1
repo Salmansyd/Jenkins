@@ -1,0 +1,87 @@
+pipeline {
+    agent any
+
+    environment {
+        // Define your environment variables here
+        STAGING_SERVER = 'staging.example.com'
+        PRODUCTION_SERVER = 'production.example.com'
+        EMAIL_RECIPIENT = 'developer@example.com'
+    }
+
+    stages {
+        stage('Build') {
+            steps {
+                echo 'Building...'
+                // Example for using Maven
+                sh 'mvn clean package'
+            }
+        }
+
+        stage('Unit and Integration Tests') {
+            steps {
+                echo 'Running Unit and Integration Tests...'
+                // Example for running tests with Maven
+                sh 'mvn test'
+            }
+        }
+
+        stage('Code Analysis') {
+            steps {
+                echo 'Analyzing Code...'
+                // Example for running SonarQube analysis
+                sh 'mvn sonar:sonar'
+            }
+        }
+
+        stage('Security Scan') {
+            steps {
+                echo 'Performing Security Scan...'
+                // Example for running OWASP ZAP
+                sh 'zap-cli quick-scan --self-contained http://your-app-url'
+            }
+        }
+
+        stage('Deploy to Staging') {
+            steps {
+                echo 'Deploying to Staging...'
+                // Example for deploying to AWS EC2
+                sh 'scp target/your-app.war ec2-user@${STAGING_SERVER}:/var/lib/tomcat/webapps/'
+            }
+        }
+
+        stage('Integration Tests on Staging') {
+            steps {
+                echo 'Running Integration Tests on Staging...'
+                // Example for running tests with Selenium
+                sh 'mvn verify -Pintegration-tests -Dselenium.url=http://${STAGING_SERVER}'
+            }
+        }
+
+        stage('Deploy to Production') {
+            steps {
+                echo 'Deploying to Production...'
+                // Example for deploying to AWS EC2
+                sh 'scp target/your-app.war ec2-user@${PRODUCTION_SERVER}:/var/lib/tomcat/webapps/'
+            }
+        }
+    }
+
+    post {
+        always {
+            script {
+                def status = currentBuild.currentResult
+                if (status == 'FAILURE') {
+                    mail to: "${EMAIL_RECIPIENT}",
+                        subject: "Build Failed: ${env.JOB_NAME} [${env.BUILD_NUMBER}]",
+                        body: """Build failed at stage: ${currentBuild.currentResult}
+                                Check the Jenkins logs for details."""
+                } else {
+                    mail to: "${EMAIL_RECIPIENT}",
+                        subject: "Build Successful: ${env.JOB_NAME} [${env.BUILD_NUMBER}]",
+                        body: """Build succeeded at stage: ${currentBuild.currentResult}
+                                Check the Jenkins logs for details."""
+                }
+            }
+        }
+    }
+}
